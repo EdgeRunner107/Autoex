@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weflab 엑셀 OBS 순위 - 순위별 보상</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  /* 각 OBS 콘텐츠 화면 크기 */
+  --content-width:1200px;
+  --content-height:1200px;
+  /* 크로마키 배경과 흰색 콘텐츠 */
+  --chroma:#00ff00;
+  --white:#fff;
+  /* 두 콘텐츠 사이 간격 */
+  --content-gap:18px;
+  /* 표의 위치와 디자인 */
+  --table-top:80px;
+  --table-side:55px;
+  --font-size:30px;
+  --header-font-size:30px;
+  --cell-padding-y:18px;
+  --cell-padding-x:14px;
+  --border-width:4px;
+  --rank-width:110px;
+  --score-width:220px;
+  --contribution-width:235px;
+  --type-width:120px;
+  --amount-width:245px;
+
+  /* =====================================================
+     엑셀 순위 디자인 설정
+     아래 값만 수정하면 표의 가로·세로 크기와 간격을 조절할 수 있습니다.
+     ===================================================== */
+
+  /* -----------------------------------------------------
+     1. 엑셀 순위 화면 배경
+     ----------------------------------------------------- */
+
+  /* 엑셀 순위 화면 전체 배경색
+     rgba 마지막 숫자는 투명도입니다.
+     0 = 완전 투명 / 1 = 완전 불투명 */
+  --excel-background:rgba(0, 255, 0, 0.96);
+
+
+  /* -----------------------------------------------------
+     2. 표 전체 위치와 크기
+     ----------------------------------------------------- */
+
+  /* 표가 화면 위에서 시작되는 위치
+     값을 늘리면 표가 아래로 이동합니다. */
+  --excel-table-top:50px;
+
+  /* 표가 화면 왼쪽에서 시작되는 위치
+     값을 늘리면 표가 오른쪽으로 이동합니다. */
+  --excel-table-left:34px;
+
+  /* 표 전체 가로 너비
+     표가 너무 크면 값을 줄이세요.
+     예: 700px = 작게 / 850px = 보통 / 930px = 크게 */
+  --excel-table-width:980px;
+
+  /* 표 전체 최대 높이
+     내용이 이 높이를 넘으면 아래쪽이 숨겨집니다.
+     제한하지 않으려면 none 대신 큰 값(예: 900px)을 사용하세요. */
+  --excel-table-max-height:900px;
+
+  /* 표 외곽선 두께
+     0px으로 설정하면 외곽선이 사라집니다. */
+  --excel-table-border-width:5px;
+
+  /* 표 외곽선 색상 */
+  --excel-table-border-color:rgba(10, 0, 0, 0);
+
+  /* 표 외곽 모서리 둥글기
+     0px = 각진 표 / 숫자가 클수록 둥글게 */
+  --excel-table-radius:0px;
+
+
+  /* -----------------------------------------------------
+     3. 전체 폰트
+     ----------------------------------------------------- */
+
+  /* 엑셀 순위에 사용할 폰트
+     설치된 폰트를 가장 앞에 적으면 됩니다. */
+  --excel-font-family:"Arial","Noto Sans KR",sans-serif;
+
+  /* 본문 글자 크기
+     등수, 스트리머, 점수, 기여도 데이터에 적용됩니다. */
+  --excel-font-size:25px;
+
+  /* 본문 글자 굵기
+     400 = 보통 / 700 = 굵게 / 900 = 매우 굵게 */
+  --excel-font-weight:900;
+
+  /* 기본 글자색
+     열별 색상을 따로 지정하지 않은 경우 사용됩니다. */
+  --excel-font-color:#f4f4f4;
+
+  /* 글자 사이 간격
+     음수면 글자가 붙고, 양수면 벌어집니다. */
+  --excel-letter-spacing:-0.8px;
+
+  /* 글자 그림자
+     그림자를 없애려면 none으로 설정하세요. */
+  --excel-text-shadow:0 2px 2px rgba(0,0,0,.75);
+
+
+  /* -----------------------------------------------------
+     4. 헤더: 보상 / 스트리머 / 웹후원 / 계좌후원 / 점수 / 기여도
+     ----------------------------------------------------- */
+
+  /* 헤더 글자 크기 */
+  --excel-header-font-size:23px;
+
+  /* 헤더 글자 굵기 */
+  --excel-header-font-weight:900;
+
+  /* 헤더 글자색 */
+  --excel-header-font-color:#d5d5d5;
+
+  /* 헤더 배경색 */
+  --excel-header-background:rgba(255,255,255,.055);
+
+  /* 헤더 한 줄의 세로 높이
+     헤더가 너무 크면 이 값을 줄이세요. */
+  --excel-header-height:44px;
+
+  /* 헤더 셀 내부 위아래 여백
+     높이는 header-height가 우선 적용되며,
+     글자 위치를 조금 더 여유 있게 만들 때 사용합니다. */
+  --excel-header-padding-y:0px;
+
+  /* 헤더 셀 내부 좌우 여백 */
+  --excel-header-padding-x:8px;
+
+
+  /* -----------------------------------------------------
+     5. 데이터 행 세로 크기와 간격
+     ----------------------------------------------------- */
+
+  /* 각 데이터 행의 전체 높이
+     표가 너무 세로로 크면 가장 먼저 줄일 값입니다. */
+  --excel-row-height:46px;
+
+  /* 데이터 셀 내부 위아래 여백
+     0px에 가깝게 하면 행이 더 촘촘해집니다. */
+  --excel-cell-padding-y:0px;
+
+  /* 데이터 셀 내부 좌우 여백
+     값을 줄이면 각 열의 글자가 구분선에 가까워집니다. */
+  --excel-cell-padding-x:9px;
+
+  /* 홀수 행 배경색 */
+  --excel-row-background:rgba(255,255,255,.015);
+
+  /* 짝수 행 배경색 */
+  --excel-row-alt-background:rgba(255,255,255,.035);
+
+  /* 마우스를 올렸을 때 행 배경색 */
+  --excel-row-hover-background:rgba(255,255,255,.07);
+
+
+  /* -----------------------------------------------------
+     6. 행과 열 사이 구분선
+     ----------------------------------------------------- */
+
+  /* 가로 구분선 두께
+     0px으로 설정하면 행 사이 선이 사라집니다. */
+  --excel-row-line-width:1px;
+
+  /* 세로 구분선 두께
+     0px으로 설정하면 열 사이 선이 사라집니다. */
+  --excel-column-line-width:1px;
+
+  /* 가로·세로 구분선 색상 */
+  --excel-row-line-color:rgba(255,255,255,.12);
+
+
+  /* -----------------------------------------------------
+     7. 각 열의 가로 너비
+     네 열의 합이 표 전체 너비를 넘지 않도록 조절하세요.
+     ----------------------------------------------------- */
+
+  /* 보상 열 너비 */
+  --excel-rank-width:150px;
+
+  /* 스트리머 이름 열 너비
+     이름이 길면 늘리고, 표를 작게 만들려면 줄이세요. */
+  --excel-player-width:150px;
+
+  /* 웹후원(toon_score) 열 너비 */
+  --excel-toon-width:145px;
+
+  /* 계좌후원(account_score) 열 너비 */
+  --excel-account-width:145px;
+
+  /* 점수(rankscore) 열 너비 */
+  --excel-score-width:145px;
+
+  /* 기여도(score) 열 너비 */
+  --excel-contribution-width:145px;
+
+
+  /* -----------------------------------------------------
+     8. 각 열의 글자 정렬
+     left / center / right 중 하나를 사용합니다.
+     ----------------------------------------------------- */
+
+  /* 보상 텍스트 정렬 */
+  --excel-rank-align:center;
+
+  /* 스트리머 이름 정렬 */
+  --excel-player-align:center;
+
+  /* 웹후원 정렬 */
+  --excel-toon-align:right;
+
+  /* 계좌후원 정렬 */
+  --excel-account-align:right;
+
+  /* 점수 정렬 */
+  --excel-score-align:right;
+
+  /* 기여도 정렬 */
+  --excel-contribution-align:right;
+
+
+  /* -----------------------------------------------------
+     9. 각 열의 글자색
+     ----------------------------------------------------- */
+
+  /* 보상 텍스트 색상 */
+  --excel-rank-color:#ffe27a;
+
+  /* 스트리머 이름 색상 */
+  --excel-player-color:#ffffff;
+
+  /* 웹후원 색상 */
+  --excel-toon-color:#ffffff;
+
+  /* 계좌후원 색상 */
+  --excel-account-color:#ffffff;
+
+  /* 점수 색상 */
+  --excel-score-color:#ffffff;
+
+  /* 기여도 색상 */
+  --excel-contribution-color:#f1f1f1;
+
+
+  /* -----------------------------------------------------
+     10. 열 사이 추가 간격
+     표 셀 자체의 너비와 별개로 글자 주변 여백을 조절합니다.
+     ----------------------------------------------------- */
+
+  /* 보상 열 오른쪽 여백 */
+  --excel-rank-padding-right:8px;
+
+  /* 스트리머 이름 열 왼쪽 여백 */
+  --excel-player-padding-left:10px;
+
+  /* 웹후원 열 오른쪽 여백 */
+  --excel-toon-padding-right:10px;
+
+  /* 계좌후원 열 오른쪽 여백 */
+  --excel-account-padding-right:10px;
+
+  /* 점수 열 오른쪽 여백 */
+  --excel-score-padding-right:10px;
+
+  /* 기여도 열 오른쪽 여백 */
+  --excel-contribution-padding-right:10px;
+
+
+  /* -----------------------------------------------------
+     11. 빈 데이터 안내 행
+     ----------------------------------------------------- */
+
+  /* 데이터가 없을 때 안내 행 높이 */
+  --excel-empty-row-height:100px;
+
+  /* 데이터가 없을 때 안내 글자 크기 */
+  --excel-empty-font-size:23px;
+
+
+  /* 애니메이션 */
+  --number-duration:700;
+  --flash-duration:1.8s;
+  /* 관리자 */
+  --admin-width:390px;
+  --admin-bg:#10141d;
+  --admin-bg2:#171d28;
+  --admin-line:#30394a;
+  --admin-text:#eef3ff;
+  --admin-muted:#9aa6ba;
+  --admin-accent:#4d8dff;
+  --admin-success:#42d392;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Arial,"Noto Sans KR",sans-serif}
+body{display:grid;grid-template-columns:minmax(0,1fr) var(--admin-width);background:#090c11;color:var(--admin-text)}
+.preview-shell{min-width:0;padding:18px;overflow:auto;background:#090c11}
+.preview-stage{display:block;width:var(--content-width);height:var(--content-height);transform-origin:top left}
+.obs-content{position:relative;flex:0 0 var(--content-width);width:var(--content-width);height:var(--content-height);overflow:hidden;background:var(--chroma)}
+.table-wrap{position:absolute;inset:var(--table-top) var(--table-side) auto var(--table-side)}
+table{width:100%;border-collapse:collapse;table-layout:fixed;color:var(--white);font-size:var(--font-size);font-weight:900}
+th,td{border:var(--border-width) solid var(--white);padding:var(--cell-padding-y) var(--cell-padding-x);background:transparent}
+th{font-size:var(--header-font-size);text-align:center}
+.excel-table th:nth-child(1),.excel-table td:nth-child(1),.donor-table th:nth-child(1),.donor-table td:nth-child(1){width:var(--rank-width);text-align:center}
+.excel-table th:nth-child(2),.excel-table td:nth-child(2),.donor-table th:nth-child(2),.donor-table td:nth-child(2){text-align:left}
+.excel-table th:nth-child(3),.excel-table td:nth-child(3){width:var(--score-width);text-align:right}
+.excel-table th:nth-child(4),.excel-table td:nth-child(4){width:var(--contribution-width);text-align:right}
+.donor-table th:nth-child(3),.donor-table td:nth-child(3){width:var(--type-width);text-align:center}
+.donor-table th:nth-child(4),.donor-table td:nth-child(4){width:var(--amount-width);text-align:right}
+.donor-table td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.type-icons{display:inline-flex;gap:7px;align-items:center;justify-content:center}.account-icon{font-size:31px}.toon-icon{font-size:31px;color:#4da3ff;text-shadow:0 0 2px #fff}.other-icon{font-size:24px}
+
+/* =========================================================
+   엑셀 순위 전용 디자인
+   위의 :root 변수만 변경하면 아래 CSS는 수정할 필요가 없습니다.
+   ========================================================= */
+
+#excelContent{
+  background:var(--excel-background);
+  color:var(--excel-font-color);
+  font-family:var(--excel-font-family);
+}
+
+/* 표 전체 위치와 크기 */
+#excelContent .table-wrap{
+  position:absolute;
+  top:var(--excel-table-top);
+  left:var(--excel-table-left);
+  right:auto;
+  bottom:auto;
+
+  width:var(--excel-table-width);
+  max-width:calc(100% - var(--excel-table-left));
+  max-height:var(--excel-table-max-height);
+
+  border:var(--excel-table-border-width) solid var(--excel-table-border-color);
+  border-radius:var(--excel-table-radius);
+
+  background:rgba(0,0,0,.22);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.4),
+    inset 0 1px 0 rgba(255,255,255,.025);
+
+  overflow:hidden;
+}
+
+/* 표 기본값 */
+#excelContent .excel-table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+
+  color:var(--excel-font-color);
+  font-family:var(--excel-font-family);
+  font-size:var(--excel-font-size);
+  font-weight:var(--excel-font-weight);
+  letter-spacing:var(--excel-letter-spacing);
+  text-shadow:var(--excel-text-shadow);
+}
+
+/* 모든 셀 공통 */
+#excelContent .excel-table th,
+#excelContent .excel-table td{
+  box-sizing:border-box;
+
+  border-top:0;
+  border-left:0;
+  border-right:var(--excel-column-line-width) solid var(--excel-row-line-color);
+  border-bottom:var(--excel-row-line-width) solid var(--excel-row-line-color);
+
+  padding:
+    var(--excel-cell-padding-y)
+    var(--excel-cell-padding-x);
+
+  background:var(--excel-row-background);
+  vertical-align:middle;
+  line-height:1;
+}
+
+/* 마지막 열 오른쪽 구분선 제거 */
+#excelContent .excel-table th:last-child,
+#excelContent .excel-table td:last-child{
+  border-right:0;
+}
+
+/* 헤더 */
+#excelContent .excel-table thead th{
+  height:var(--excel-header-height);
+
+  padding:
+    var(--excel-header-padding-y)
+    var(--excel-header-padding-x);
+
+  color:var(--excel-header-font-color);
+  background:var(--excel-header-background);
+
+  font-size:var(--excel-header-font-size);
+  font-weight:var(--excel-header-font-weight);
+  text-align:center;
+  white-space:nowrap;
+}
+
+/* 데이터 행 높이 */
+#excelContent .excel-table tbody tr{
+  height:var(--excel-row-height);
+}
+
+/* 짝수 행 배경 */
+#excelContent .excel-table tbody tr:nth-child(even) td{
+  background:var(--excel-row-alt-background);
+}
+
+/* 마우스 오버 */
+#excelContent .excel-table tbody tr:hover td{
+  background:var(--excel-row-hover-background);
+}
+
+/* 마지막 행의 아래쪽 구분선 제거 */
+#excelContent .excel-table tbody tr:last-child td{
+  border-bottom:0;
+}
+
+/* 1열: 순위별 보상 */
+#excelContent .excel-table th:nth-child(1),
+#excelContent .excel-table td:nth-child(1){
+  width:var(--excel-rank-width);
+  color:var(--excel-rank-color);
+  text-align:var(--excel-rank-align);
+  padding-left:8px;
+  padding-right:var(--excel-rank-padding-right);
+
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* 2열: 스트리머 */
+#excelContent .excel-table th:nth-child(2),
+#excelContent .excel-table td:nth-child(2){
+  width:var(--excel-player-width);
+  color:var(--excel-player-color);
+  text-align:var(--excel-player-align);
+  padding-left:var(--excel-player-padding-left);
+
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* 3열: 웹후원 */
+#excelContent .excel-table th:nth-child(3),
+#excelContent .excel-table td:nth-child(3){
+  width:var(--excel-toon-width);
+  color:var(--excel-toon-color);
+  text-align:var(--excel-toon-align);
+  padding-right:var(--excel-toon-padding-right);
+
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* 4열: 계좌후원 */
+#excelContent .excel-table th:nth-child(4),
+#excelContent .excel-table td:nth-child(4){
+  width:var(--excel-account-width);
+  color:var(--excel-account-color);
+  text-align:var(--excel-account-align);
+  padding-right:var(--excel-account-padding-right);
+
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* 5열: 점수 */
+#excelContent .excel-table th:nth-child(5),
+#excelContent .excel-table td:nth-child(5){
+  width:var(--excel-score-width);
+  color:var(--excel-score-color);
+  text-align:var(--excel-score-align);
+  padding-right:var(--excel-score-padding-right);
+
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* 6열: 기여도 */
+#excelContent .excel-table th:nth-child(6),
+#excelContent .excel-table td:nth-child(6){
+  width:var(--excel-contribution-width);
+  color:var(--excel-contribution-color);
+  text-align:var(--excel-contribution-align);
+  padding-right:var(--excel-contribution-padding-right);
+
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* 순위 변동 화살표 */
+#excelContent .rank-arrow{
+  display:inline-block;
+  width:auto;
+  margin-left:5px;
+  font-size:.58em;
+  vertical-align:middle;
+}
+
+/* 데이터가 없을 때 안내 행 */
+#excelContent .empty-row td{
+  height:var(--excel-empty-row-height);
+  color:rgba(255,255,255,.72);
+  font-size:var(--excel-empty-font-size);
+  text-align:center!important;
+}
+
+/* 점수 갱신 강조 애니메이션 */
+@keyframes excelReferenceFlash{
+  0%,100%{
+    background:var(--excel-row-background);
+  }
+  20%,48%{
+    background:rgba(245,194,66,.22);
+  }
+  34%,65%{
+    background:var(--excel-row-alt-background);
+  }
+}
+
+#excelContent tr.flash td{
+  animation:excelReferenceFlash var(--flash-duration) ease;
+}
+
+
+.rank-arrow{display:inline-block;width:30px;margin-left:3px;font-size:.7em;opacity:0}.rank-arrow.show{animation:rankPop 1.7s ease both}
+@keyframes rankPop{0%{opacity:0;transform:translateY(8px) scale(.7)}20%{opacity:1;transform:translateY(0) scale(1.15)}70%{opacity:1}100%{opacity:0;transform:translateY(-7px)}}
+@keyframes rowFlash{0%,100%{background:transparent;color:#fff}18%,48%{background:rgba(255,255,255,.95);color:#00a000}33%,65%{background:transparent;color:#fff}}
+tr.flash td{animation:rowFlash var(--flash-duration) ease}.empty-row td{height:100px;text-align:center!important;font-size:27px}
+.admin{position:sticky;top:0;height:100vh;overflow:auto;padding:22px;background:linear-gradient(180deg,var(--admin-bg2),var(--admin-bg));border-left:1px solid var(--admin-line)}
+.admin h1{margin:0 0 7px;font-size:23px}.sub,.help{color:var(--admin-muted);font-size:12px;line-height:1.6}.sub{margin-bottom:20px;font-size:13px}
+.section{margin-bottom:16px;padding:15px;border:1px solid var(--admin-line);border-radius:13px;background:rgba(255,255,255,.025)}.section-title{margin-bottom:12px;font-size:14px;font-weight:900}.field{display:grid;gap:6px;margin-bottom:11px}label{color:var(--admin-muted);font-size:12px;font-weight:800}
+input,select,button{width:100%;border-radius:9px;font:inherit}input,select{padding:11px 12px;color:var(--admin-text);background:#0d121b;border:1px solid var(--admin-line);outline:none}button{border:0;padding:11px 12px;font-weight:900;cursor:pointer}.btn-primary{background:var(--admin-accent);color:#fff}.btn-secondary{background:#2b3444;color:#fff}.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.status-line{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px}.status-value{color:var(--admin-muted);font-weight:800;text-align:right}.status-value.on{color:var(--admin-success)}kbd{padding:2px 5px;border:1px solid var(--admin-line);border-radius:5px;background:#0b1018}
+body.obs-mode{display:block;width:var(--content-width);height:var(--content-height);overflow:hidden;background:var(--chroma)}
+body.obs-mode .admin{display:none}
+body.obs-mode .preview-shell{padding:0;overflow:hidden;background:var(--chroma)}
+body.obs-mode .preview-stage{display:block;width:var(--content-width);height:var(--content-height);transform:none!important}
+@media(max-width:1200px){body:not(.obs-mode){grid-template-columns:1fr}body:not(.obs-mode) .admin{position:relative;height:auto;border-left:0;border-top:1px solid var(--admin-line)}}
+</style>
+</head>
+<body>
+<section class="preview-shell"><div id="previewStage" class="preview-stage">
+  <div id="excelContent" class="obs-content"><div class="table-wrap"><table class="excel-table"><thead><tr><th>순위</th><th>스트리머</th><th>웹후원</th><th>계좌후원</th><th>점수</th><th>기여도</th></tr></thead><tbody id="excelBody"><tr class="empty-row"><td colspan="6">오른쪽에서 Supabase를 연결하세요.</td></tr></tbody></table></div></div>
+</div></section>
+<aside class="admin">
+<h1>Weflab 엑셀 순위 관리자</h1><div class="sub">OBS 엑셀 순위와 표시되는 모든 순위의 보상 문구를 관리합니다.</div>
+<div class="section"><div class="section-title">Supabase 연결</div><div class="field"><label>Project URL</label><input id="urlInput" placeholder="https://xxxx.supabase.co"></div><div class="field"><label>Anon Key</label><input id="keyInput" type="password" placeholder="eyJ..."></div><div class="btn-row"><button id="connectBtn" class="btn-primary">연결 및 저장</button><button id="clearBtn" class="btn-secondary">저장값 삭제</button></div></div>
+<div class="section"><div class="section-title">조회 설정</div><div class="field"><label>엑셀 순위 표시 인원</label><select id="excelLimitInput"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>50</option></select></div><div class="field"><label>조회 주기</label><select id="refreshInput"><option value="1000">1초</option><option value="2000">2초</option><option value="3000" selected>3초</option><option value="5000">5초</option><option value="10000">10초</option></select></div><div class="btn-row"><button id="refreshBtn" class="btn-secondary">지금 조회</button><button id="toggleBtn" class="btn-primary">자동 조회 시작</button></div></div>
+
+
+<div class="section">
+  <div class="section-title">순위별 보상 문구</div>
+
+  <div class="help" style="margin-bottom:12px">
+    현재 표시 인원 수에 맞춰 모든 순위의 보상을 설정할 수 있습니다.<br>
+    예: 표시 인원 10명 → 1위부터 10위까지 입력칸 생성
+  </div>
+
+  <div id="rewardInputs"></div>
+
+  <button id="saveRewardsBtn" class="btn-primary">
+    보상 문구 저장 및 적용
+  </button>
+</div>
+
+<div class="section"><div class="section-title">연결 상태</div><div class="status-line"><span>상태</span><span id="statusText" class="status-value">연결 안 됨</span></div><div class="status-line"><span>마지막 갱신</span><span id="lastText" class="status-value">-</span></div><div class="status-line"><span>조회 횟수</span><span id="countText" class="status-value">0회</span></div><div class="status-line"><span>엑셀 순위</span><span id="excelRowsText" class="status-value">0명</span></div></div>
+<div class="section help">
+  <b>엑셀 표 크기 조절</b><br>
+  전체 너비: <kbd>--excel-table-width</kbd><br>
+  표 위쪽 위치: <kbd>--excel-table-top</kbd><br>
+  표 왼쪽 위치: <kbd>--excel-table-left</kbd><br>
+  헤더 높이: <kbd>--excel-header-height</kbd><br>
+  데이터 행 높이: <kbd>--excel-row-height</kbd><br>
+  셀 좌우 여백: <kbd>--excel-cell-padding-x</kbd><br>
+  셀 위아래 여백: <kbd>--excel-cell-padding-y</kbd><br><br>
+
+  <b>열 너비 조절</b><br>
+  순위: <kbd>--excel-rank-width</kbd><br>
+  스트리머: <kbd>--excel-player-width</kbd><br>
+  웹후원: <kbd>--excel-toon-width</kbd><br>
+  계좌후원: <kbd>--excel-account-width</kbd><br>
+  점수: <kbd>--excel-score-width</kbd><br>
+  기여도: <kbd>--excel-contribution-width</kbd><br><br>
+
+  <b>OBS 모드</b><br>주소 뒤에 <kbd>?obs=1</kbd>을 붙이세요.<br>화면 크기: 1000×1000<br></div>
+</aside>
+<script>
+const STORAGE_KEY='weflab_excel_ranking_only_v1',SCOREBOARD_VIEW='weflab_scoreboard';
+let db=null,timer=null,autoRunning=false,loading=false,refreshCount=0,previousExcel=new Map();
+const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('ko-KR'),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function obsMode(){return new URLSearchParams(location.search).get('obs')==='1'}
+function applyObs(){if(obsMode())document.body.classList.add('obs-mode')}
+function fit(){if(obsMode())return;const s=$('previewStage'),sh=document.querySelector('.preview-shell'),scale=Math.min(1,Math.max(320,sh.clientWidth-36)/(s.scrollWidth||1000));s.style.transform=`scale(${scale})`;sh.style.height=`${(s.scrollHeight||1000)*scale+36}px`}
+let rewardValues=[];
+
+function rewardCount(){
+  return Math.max(1,Number($('excelLimitInput').value||10));
+}
+
+function renderRewardInputs(){
+  const count=rewardCount();
+  const wrap=$('rewardInputs');
+
+  while(rewardValues.length<count){
+    rewardValues.push('');
+  }
+
+  wrap.innerHTML=Array.from({length:count},(_,i)=>`
+    <div class="field">
+      <label>${i+1}위 보상</label>
+      <input
+        id="reward${i+1}Input"
+        data-rank="${i+1}"
+        value="${esc(rewardValues[i]||'')}"
+        placeholder="예: ${i+1}위 보상"
+      >
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('input[data-rank]').forEach(input=>{
+    input.oninput=()=>{
+      const index=Number(input.dataset.rank)-1;
+      rewardValues[index]=input.value.trim();
+      save();
+      rerenderCurrentRows();
+    };
+  });
+}
+
+function getRewards(){
+  return [...rewardValues];
+}
+
+function save(){
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      url:$('urlInput').value.trim(),
+      key:$('keyInput').value.trim(),
+      excelLimit:$('excelLimitInput').value,
+      refresh:$('refreshInput').value,
+      rewards:getRewards()
+    })
+  );
+}
+
+function loadSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+
+    $('urlInput').value=s.url||'';
+    $('keyInput').value=s.key||'';
+    $('excelLimitInput').value=s.excelLimit||'10';
+    $('refreshInput').value=s.refresh||'3000';
+
+    rewardValues=Array.isArray(s.rewards)?s.rewards.map(v=>String(v||'')):[];
+
+    renderRewardInputs();
+    return s;
+  }catch{
+    rewardValues=[];
+    renderRewardInputs();
+    return {};
+  }
+}
+
+function status(t,ok=false){$('statusText').textContent=t;$('statusText').classList.toggle('on',ok)}
+function animate(el,from,to){el.textContent=fmt.format(from);const start=performance.now(),duration=Number(getComputedStyle(document.documentElement).getPropertyValue('--number-duration'))||700,diff=to-from;(function frame(now){const p=Math.min(1,(now-start)/duration),e=1-Math.pow(1-p,3);el.textContent=fmt.format(Math.round(from+diff*e));if(p<1)requestAnimationFrame(frame)})(start)}
+function arrow(oldRank,newRank){if(!oldRank||oldRank===newRank)return'';return `<span class="rank-arrow show">${newRank<oldRank?'▲':'▼'}</span>`}
+function rerenderCurrentRows(){
+  if(!previousExcel.size)return;
+
+  renderExcel(
+    [...previousExcel.values()]
+      .sort((a,b)=>a.rank-b.rank)
+  );
+}
+
+function renderExcel(rows){
+  const body=$('excelBody');
+  const current=new Map(
+    rows.map((r,i)=>[
+      String(r.player_id),
+      {...r,rank:i+1}
+    ])
+  );
+
+  if(!rows.length){
+    body.innerHTML='<tr class="empty-row"><td colspan="6">표시할 엑셀 순위가 없습니다.</td></tr>';
+    previousExcel=current;
+    return;
+  }
+
+  body.innerHTML=rows.map((r,i)=>{
+    const old=previousExcel.get(String(r.player_id));
+    const rank=i+1;
+
+    const flash=old&&(
+      Number(r.score||0)>Number(old.score||0) ||
+      Number(r.rankscore||0)>Number(old.rankscore||0) ||
+      Number(r.toon_score||0)>Number(old.toon_score||0) ||
+      Number(r.account_score||0)>Number(old.account_score||0) ||
+      Number(r.donation_count||0)>Number(old.donation_count||0)
+    );
+
+    return `
+      <tr class="${flash?'flash':''}">
+        <td class="reward-rank-cell"
+            title="${esc(getRewards()[rank-1]||'')}">
+          ${esc(getRewards()[rank-1]||'')}
+        </td>
+        <td title="${esc(r.player_name||'이름 없음')}">${esc(r.player_name||'이름 없음')}</td>
+
+        <td class="num"
+            data-from="${Number(old?.toon_score??r.toon_score??0)}"
+            data-to="${Number(r.toon_score||0)}"></td>
+
+        <td class="num"
+            data-from="${Number(old?.account_score??r.account_score??0)}"
+            data-to="${Number(r.account_score||0)}"></td>
+
+        <td class="num"
+            data-from="${Number(old?.rankscore??r.rankscore??0)}"
+            data-to="${Number(r.rankscore||0)}"></td>
+
+        <td class="num"
+            data-from="${Number(old?.score??r.score??0)}"
+            data-to="${Number(r.score||0)}"></td>
+      </tr>
+    `;
+  }).join('');
+
+  body.querySelectorAll('.num').forEach(e=>{
+    animate(
+      e,
+      Number(e.dataset.from),
+      Number(e.dataset.to)
+    );
+  });
+
+  previousExcel=current;
+}
+
+
+async function loadAll(){
+  if(!db||loading)return;
+
+  loading=true;
+
+  try{
+    const displayLimit=Number($('excelLimitInput').value||10);
+
+    /*
+      운영비가 점수 때문에 조회 범위 밖으로 밀려나지 않도록
+      충분한 데이터를 먼저 조회한 다음 화면에서 직접 정렬합니다.
+    */
+    const s=await db
+      .from(SCOREBOARD_VIEW)
+      .select('player_id,player_name,sort_order,donation_count,toon_score,account_score,score,rankscore')
+      .order('rankscore',{ascending:false})
+      .order('score',{ascending:false})
+      .order('sort_order',{ascending:true})
+      .limit(1000);
+
+    if(s.error)throw s.error;
+
+    const allRows=s.data||[];
+
+    // 이름 앞뒤 공백을 제거한 뒤 정확히 "운영비"인 행을 분리합니다.
+    const operatingRows=allRows.filter(
+      row=>String(row.player_name||'').trim()==='운영비'
+    );
+
+    const normalRows=allRows.filter(
+      row=>String(row.player_name||'').trim()!=='운영비'
+    );
+
+    let visibleRows;
+
+    if(operatingRows.length){
+      /*
+        표시 인원이 10명이면:
+        일반 플레이어 9명 + 운영비 1명으로 구성합니다.
+        운영비 데이터가 여러 개라면 운영비 행 수만큼 마지막에 붙입니다.
+      */
+      const normalLimit=Math.max(0,displayLimit-operatingRows.length);
+
+      visibleRows=[
+        ...normalRows.slice(0,normalLimit),
+        ...operatingRows
+      ].slice(0,displayLimit);
+    }else{
+      visibleRows=normalRows.slice(0,displayLimit);
+    }
+
+    renderExcel(visibleRows);
+
+    refreshCount++;
+    $('lastText').textContent=new Date().toLocaleTimeString(
+      'ko-KR',
+      {hour12:false}
+    );
+    $('countText').textContent=refreshCount+'회';
+    $('excelRowsText').textContent=visibleRows.length+'명';
+
+    status('정상 연결',true);
+  }catch(e){
+    console.error(e);
+    status('조회 실패: '+e.message);
+  }finally{
+    loading=false;
+  }
+}
+function stop(){if(timer)clearTimeout(timer);timer=null;autoRunning=false;$('toggleBtn').textContent='자동 조회 시작'}function schedule(){if(!autoRunning)return;timer=setTimeout(async()=>{await loadAll();schedule()},Math.max(1000,Number($('refreshInput').value||3000)))}async function start(){if(!db){alert('먼저 Supabase를 연결하세요.');return}stop();autoRunning=true;$('toggleBtn').textContent='자동 조회 중지';await loadAll();schedule()}
+function connect(){const url=$('urlInput').value.trim(),key=$('keyInput').value.trim();if(!url||!key){alert('Supabase Project URL과 Anon Key를 입력하세요.');return}save();db=supabase.createClient(url,key);previousExcel=new Map();refreshCount=0;start()}
+$('connectBtn').onclick=connect;
+
+$('clearBtn').onclick=()=>{
+  stop();
+  localStorage.removeItem(STORAGE_KEY);
+
+  $('urlInput').value='';
+  $('keyInput').value='';
+  rewardValues=[];
+
+  renderRewardInputs();
+
+  db=null;
+  previousExcel=new Map();
+  status('저장값 삭제됨');
+};
+
+$('refreshBtn').onclick=loadAll;
+$('toggleBtn').onclick=()=>autoRunning?stop():start();
+
+$('excelLimitInput').onchange=()=>{
+  const count=rewardCount();
+
+  while(rewardValues.length<count){
+    rewardValues.push('');
+  }
+
+  renderRewardInputs();
+  save();
+  loadAll();
+};
+
+$('refreshInput').onchange=()=>{
+  save();
+  if(autoRunning)start();
+};
+
+$('saveRewardsBtn').onclick=()=>{
+  save();
+  rerenderCurrentRows();
+  status('보상 문구 저장됨',true);
+};
+
+window.onresize=fit;
+window.onbeforeunload=stop;
+applyObs();const saved=loadSettings();if(saved.url&&saved.key){db=supabase.createClient(saved.url,saved.key);start()}fit();
+</script>
+</body>
+</html>
